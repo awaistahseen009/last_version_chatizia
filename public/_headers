@@ -1,0 +1,7 @@
+# Allow embedding in iframes
+/*
+  X-Frame-Options: ALLOWALL
+  Content-Security-Policy: frame-ancestors *
+
+/chatbot/*
+  X-Frame-Options: ALLOW-FROM https://chatiziapro.site
