@@ -9,10 +9,12 @@ import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 // Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true,
-});
+const openai = import.meta.env.VITE_OPENAI_API_KEY 
+  ? new OpenAI({
+      apiKey: import.meta.env.VITE_OPENAI_API_KEY,
+      dangerouslyAllowBrowser: true,
+    })
+  : null;
 
 // Advanced text chunking with overlap
 const chunkTextWithOverlap = (text: string, chunkSize: number = 800, overlap: number = 300): string[] => {
@@ -216,22 +218,16 @@ export const useDocuments = () => {
 
       console.log('✅ File uploaded to storage');
 
-      // Create document record with 'processing' status
+      // Create document record with 'processing' status using the RPC function
       console.log('📝 Creating document record...');
       const { data: documentData, error: documentError } = await supabase
-        .from('documents')
-        .insert([
-          {
-            user_id: user.id,
-            knowledge_base_id: knowledgeBaseId || null,
-            filename: file.name,
-            file_size: file.size,
-            file_type: file.type,
-            status: 'processing',
-          },
-        ])
-        .select()
-        .single();
+        .rpc('create_document', {
+          user_id_param: user.id,
+          knowledge_base_id_param: knowledgeBaseId || null,
+          filename_param: file.name,
+          file_size_param: file.size,
+          file_type_param: file.type
+        });
 
       if (documentError) {
         console.error('❌ Document record creation failed:', documentError);
@@ -241,7 +237,8 @@ export const useDocuments = () => {
       console.log('✅ Document record created');
 
       // Add to local state immediately with processing status
-      setDocuments(prev => [documentData, ...prev]);
+      const newDocument = documentData;
+      setDocuments(prev => [newDocument, ...prev]);
 
       // Extract text, chunk, and generate embeddings in the background
       try {
@@ -268,7 +265,7 @@ export const useDocuments = () => {
             .from('document_chunks')
             .insert([
               {
-                document_id: documentData.id,
+                document_id: newDocument.id,
                 user_id: user.id,
                 chunk_text: chunk,
                 embedding: embedding,
@@ -292,7 +289,7 @@ export const useDocuments = () => {
             status: 'processed',
             processed_at: new Date().toISOString(),
           })
-          .eq('id', documentData.id);
+          .eq('id', newDocument.id);
 
         if (statusError) {
           console.error('❌ Failed to update document status:', statusError);
@@ -301,7 +298,7 @@ export const useDocuments = () => {
 
         // Update local state
         setDocuments(prev => prev.map(doc => 
-          doc.id === documentData.id 
+          doc.id === newDocument.id 
             ? { 
                 ...doc, 
                 status: 'processed', 
@@ -321,11 +318,11 @@ export const useDocuments = () => {
             status: 'failed',
             processed_at: new Date().toISOString(),
           })
-          .eq('id', documentData.id);
+          .eq('id', newDocument.id);
 
         // Update local state
         setDocuments(prev => prev.map(doc => 
-          doc.id === documentData.id 
+          doc.id === newDocument.id 
             ? { ...doc, status: 'failed' }
             : doc
         ));
@@ -333,7 +330,7 @@ export const useDocuments = () => {
         throw embeddingErr;
       }
 
-      return documentData;
+      return newDocument;
     } catch (err) {
       console.error('❌ Document upload failed:', err);
       throw new Error(err instanceof Error ? err.message : 'Failed to upload document');

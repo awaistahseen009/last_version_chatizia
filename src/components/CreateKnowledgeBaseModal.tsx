@@ -283,17 +283,16 @@ const CreateKnowledgeBaseModal: React.FC<CreateKnowledgeBaseModalProps> = ({
                   <Loader className="w-5 h-5 text-blue-600 animate-spin" />
                   <div>
                     <p className="text-sm font-medium text-blue-800">
-                      Processing documents with AI...
+                      Documents are being processed...
                     </p>
                     <p className="text-xs text-blue-600">
-                      Documents are being chunked and embedded. Please wait for completion.
+                      AI chunking and embedding in progress. Please wait for completion.
                     </p>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Step 1: Basic Information */}
             {step === 1 && (
               <div className="p-6 space-y-6">
                 <h3 className="text-lg font-semibold text-slate-800 mb-4">Basic Information</h3>
@@ -610,32 +609,26 @@ const CreateKnowledgeBaseModal: React.FC<CreateKnowledgeBaseModalProps> = ({
           <div className="bg-white rounded-lg max-w-md w-full">
             <div className="p-6">
               <div className="flex items-center space-x-3 mb-4">
-                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                  <AlertCircle className="w-5 h-5 text-red-600" />
+                <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                  <AlertCircle className="w-5 h-5 text-yellow-600" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-800">Cancel Processing?</h3>
-                  <p className="text-sm text-slate-600">Documents are currently being processed</p>
+                  <h3 className="text-lg font-semibold text-slate-800">Documents Processing</h3>
+                  <p className="text-sm text-slate-600">Please wait for processing to complete</p>
                 </div>
               </div>
               
               <p className="text-slate-700 mb-6">
                 Documents are currently being processed with AI chunking and embedding. 
-                If you cancel now, the processing will be stopped and you'll need to start over.
+                Please wait for the processing to complete before closing this modal.
               </p>
               
               <div className="flex items-center space-x-3">
                 <button
                   onClick={() => setShowCancelModal(false)}
-                  className="flex-1 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
-                  Continue Processing
-                </button>
-                <button
-                  onClick={cancelAllUploads}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                >
-                  Cancel & Close
+                  Continue Waiting
                 </button>
               </div>
             </div>
