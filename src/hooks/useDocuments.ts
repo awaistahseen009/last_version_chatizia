@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { OpenAI } from 'openai';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import { useSubscriptionLimits } from './useSubscriptionLimits';
 
 // Configure PDF.js to use the local worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
@@ -66,6 +67,7 @@ export const useDocuments = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const { isWithinLimits } = useSubscriptionLimits();
 
   // Fetch documents for the current user
   const fetchDocuments = async () => {
@@ -197,6 +199,11 @@ export const useDocuments = () => {
   // Upload document, chunk text, and generate embeddings
   const uploadDocument = async (file: File, knowledgeBaseId?: string) => {
     if (!user) throw new Error('User not authenticated');
+
+    // Check subscription limits
+    if (!isWithinLimits('documents')) {
+      throw new Error('Subscription limit reached for documents');
+    }
 
     try {
       console.log(`🚀 Starting document upload: ${file.name}`);

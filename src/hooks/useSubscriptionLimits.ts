@@ -104,6 +104,16 @@ export const useSubscriptionLimits = () => {
     } catch (err) {
       console.error('Error fetching subscription limits:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch subscription limits');
+      
+      // Set default limits in case of error
+      setLimits({
+        chatbots: 1,
+        messages: 100,
+        documents: 5,
+        voice_enabled: false,
+        analytics_enabled: false,
+        api_access: false
+      });
     } finally {
       setLoading(false);
     }

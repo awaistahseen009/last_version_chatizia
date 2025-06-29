@@ -6,6 +6,9 @@ import { useDocuments } from '../hooks/useDocuments';
 import { supabase } from '../lib/supabase';
 import { templatePrompts, getTemplatePrompt } from '../lib/templatePrompts';
 import CreateKnowledgeBaseModal from './CreateKnowledgeBaseModal';
+import SubscriptionLimitModal from './SubscriptionLimitModal';
+import { useNavigate } from 'react-router-dom';
+import { useSubscriptionLimits } from '../hooks/useSubscriptionLimits';
 
 interface CreateChatbotModalProps {
   isOpen: boolean;
@@ -16,6 +19,8 @@ const CreateChatbotModal: React.FC<CreateChatbotModalProps> = ({ isOpen, onClose
   const { addChatbot } = useChatbot();
   const { knowledgeBases, getKnowledgeBaseDocuments } = useKnowledgeBases();
   const { documents } = useDocuments();
+  const { isWithinLimits } = useSubscriptionLimits();
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -23,6 +28,7 @@ const CreateChatbotModal: React.FC<CreateChatbotModalProps> = ({ isOpen, onClose
   const [knowledgeBaseDocuments, setKnowledgeBaseDocuments] = useState<any[]>([]);
   const [showCreateKBModal, setShowCreateKBModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showSubscriptionLimitModal, setShowSubscriptionLimitModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -45,6 +51,44 @@ const CreateChatbotModal: React.FC<CreateChatbotModalProps> = ({ isOpen, onClose
     useCustomImage: false,
     systemPrompt: '' // Add system prompt field
   });
+
+  // Check subscription limits when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      // Check if user is within chatbot limits
+      const withinLimits = isWithinLimits('chatbots');
+      if (!withinLimits) {
+        setShowSubscriptionLimitModal(true);
+      }
+    }
+  }, [isOpen, isWithinLimits]);
+
+  // Check for processing documents - only consider 'processing' status as processing
+  useEffect(() => {
+    const processingDocs = documents.filter(doc => doc.status === 'processing');
+    const newIsProcessing = processingDocs.length > 0;
+    
+    if (newIsProcessing !== isProcessing) {
+      setIsProcessing(newIsProcessing);
+      processingRef.current = newIsProcessing;
+      console.log(`📊 Processing status changed: ${newIsProcessing ? 'PROCESSING' : 'COMPLETE'} (${processingDocs.length} docs processing)`);
+    }
+  }, [documents, isProcessing]);
+
+  useEffect(() => {
+    if (formData.knowledgeBaseId && formData.useExistingKnowledgeBase) {
+      loadKnowledgeBaseDocuments(formData.knowledgeBaseId);
+    }
+  }, [formData.knowledgeBaseId, formData.useExistingKnowledgeBase]);
+
+  const loadKnowledgeBaseDocuments = async (knowledgeBaseId: string) => {
+    try {
+      const docs = await getKnowledgeBaseDocuments(knowledgeBaseId);
+      setKnowledgeBaseDocuments(docs);
+    } catch (err) {
+      console.error('Failed to load knowledge base documents:', err);
+    }
+  };
 
   const templates = [
     {
@@ -93,33 +137,6 @@ const CreateChatbotModal: React.FC<CreateChatbotModalProps> = ({ isOpen, onClose
       personality: 'caring'
     }
   ];
-
-  // Check for processing documents - only consider 'processing' status as processing
-  useEffect(() => {
-    const processingDocs = documents.filter(doc => doc.status === 'processing');
-    const newIsProcessing = processingDocs.length > 0;
-    
-    if (newIsProcessing !== isProcessing) {
-      setIsProcessing(newIsProcessing);
-      processingRef.current = newIsProcessing;
-      console.log(`📊 Processing status changed: ${newIsProcessing ? 'PROCESSING' : 'COMPLETE'} (${processingDocs.length} docs processing)`);
-    }
-  }, [documents, isProcessing]);
-
-  useEffect(() => {
-    if (formData.knowledgeBaseId && formData.useExistingKnowledgeBase) {
-      loadKnowledgeBaseDocuments(formData.knowledgeBaseId);
-    }
-  }, [formData.knowledgeBaseId, formData.useExistingKnowledgeBase]);
-
-  const loadKnowledgeBaseDocuments = async (knowledgeBaseId: string) => {
-    try {
-      const docs = await getKnowledgeBaseDocuments(knowledgeBaseId);
-      setKnowledgeBaseDocuments(docs);
-    } catch (err) {
-      console.error('Failed to load knowledge base documents:', err);
-    }
-  };
 
   const handleTemplateSelect = (template: typeof templates[0]) => {
     const templatePrompt = getTemplatePrompt(template.id);
@@ -231,6 +248,12 @@ const CreateChatbotModal: React.FC<CreateChatbotModalProps> = ({ isOpen, onClose
       return;
     }
 
+    // Check if user is within chatbot limits
+    if (!isWithinLimits('chatbots')) {
+      setShowSubscriptionLimitModal(true);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -259,7 +282,12 @@ const CreateChatbotModal: React.FC<CreateChatbotModalProps> = ({ isOpen, onClose
       resetForm();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create chatbot');
+      console.error('Error creating chatbot:', err);
+      if (err instanceof Error && err.message.includes('Subscription limit')) {
+        setShowSubscriptionLimitModal(true);
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to create chatbot');
+      }
     } finally {
       setLoading(false);
     }
@@ -308,6 +336,12 @@ const CreateChatbotModal: React.FC<CreateChatbotModalProps> = ({ isOpen, onClose
       useExistingKnowledgeBase: true 
     }));
     setShowCreateKBModal(false);
+  };
+
+  const handleUpgrade = () => {
+    resetForm();
+    onClose();
+    navigate('/billing');
   };
 
   if (!isOpen) return null;
@@ -846,6 +880,14 @@ const CreateChatbotModal: React.FC<CreateChatbotModalProps> = ({ isOpen, onClose
         isOpen={showCreateKBModal}
         onClose={() => setShowCreateKBModal(false)}
         onSuccess={handleKnowledgeBaseCreated}
+      />
+
+      {/* Subscription Limit Modal */}
+      <SubscriptionLimitModal
+        isOpen={showSubscriptionLimitModal}
+        onClose={() => setShowSubscriptionLimitModal(false)}
+        resourceType="chatbots"
+        onUpgrade={handleUpgrade}
       />
 
       {/* Cancel Confirmation Modal */}
