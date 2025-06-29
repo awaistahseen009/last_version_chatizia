@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+import { useNotificationContext } from '../contexts/NotificationContext';
 
 export interface SubscriptionLimits {
   chatbots: number | 'unlimited';
@@ -48,7 +49,7 @@ export const useSubscriptionLimits = () => {
 
       // Get subscription limits
       const { data: limitsData, error: limitsError } = await supabase.rpc(
-        'get_subscription_limits',
+        "get_subscription_limits",
         { user_id_param: user.id }
       );
 
@@ -94,18 +95,8 @@ export const useSubscriptionLimits = () => {
         messageCount = count || 0;
       }
 
-      // Parse the limits data properly
-      const parsedLimits: SubscriptionLimits = {
-        chatbots: limitsData.chatbots === 'unlimited' ? 'unlimited' : parseInt(limitsData.chatbots),
-        messages: limitsData.messages === 'unlimited' ? 'unlimited' : parseInt(limitsData.messages),
-        documents: limitsData.documents === 'unlimited' ? 'unlimited' : parseInt(limitsData.documents),
-        voice_enabled: limitsData.voice_enabled,
-        analytics_enabled: limitsData.analytics_enabled,
-        api_access: limitsData.api_access
-      };
-
       // Set limits and usage
-      setLimits(parsedLimits);
+      setLimits(limitsData);
       setUsage({
         chatbots: chatbots?.length || 0,
         documents: documents?.length || 0,
